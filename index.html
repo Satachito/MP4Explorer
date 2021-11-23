@@ -1129,29 +1129,27 @@ Atoms = bytes => {
 let
 IV_Size
 
+const
+Append$ = bytes => {
+	Array.from( document.getElementsByTagName( 'jp-tree-view' ) ).forEach(
+		$ => $.parentElement.removeChild( $ )
+	)
+	document.body.append( new JPTreeView( AtomsJSON( Atoms( bytes ) ), false ) )
+}
+
 ANALYZE.onclick = ev => fetch( TARGET.value ).then(
 	response => response.blob()
 ).then(
 	blob => blob.arrayBuffer()
 ).then(
-	ab => document.body.append( new JPTreeView( AtomsJSON( Atoms( new Uint8Array( ab ) ) ), false ) )
+	ab => Append$( new Uint8Array( ab ) )
 )
-
-/*
-ANALYZE.onclick = async ev => {
-	const response = await fetch( TARGET.value )
-	const blob = await response.blob()
-	const ab = await blob.arrayBuffer()
-	JP_MP4.props( new Uint8Array( ab ) )
-}
-//	OR
-ANALYZE.onclick = async ev => document.body.append(
-	new JPTreeView(
-		AtomsJSON(
-			Atoms( new Uint8Array( await ( await ( await fetch( TARGET.value ) ).blob() ).arrayBuffer() ) )
-		)
-	,	false
-	)
+/*	OR
+ANALYZE.onclick = async ev => Append$(
+	(	await
+		(	await fetch( TARGET.value )
+		).blob()
+	).arrayBuffer()
 )
 */
 
