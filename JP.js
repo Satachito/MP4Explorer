@@ -1,8 +1,8 @@
 export const 
 MakeDataView = ( typed, offset = 0 ) => new DataView(
 	typed.buffer
-,   typed.byteOffset + offset
-,   typed.byteLength - offset
+,	typed.byteOffset + offset
+,	typed.byteLength - offset
 )
 
 export const

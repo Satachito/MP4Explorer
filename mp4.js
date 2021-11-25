@@ -1,21 +1,5 @@
 import { MakeDataView, SubBytes } from './JP.js'
 
-/*
-const
-MakeDataView = ( typed, offset = 0 ) => new DataView(
-	typed.buffer
-,   typed.byteOffset + offset
-,   typed.byteLength - offset
-)
-
-const
-SubBytes = ( bytes, $, _ ) => new Uint8Array(
-	bytes.buffer
-,	bytes.byteOffset + $
-,	_ === void 0 ? bytes.length - $ : _
-)
-*/
-
 const
 TimeString_MP4TimeStamp = $ => new Date( $ - 1000 * 3600 * 24 * ( 365 * 66 + 17 ) )
 //TimeString_MP4TimeStamp = $ => $
@@ -167,12 +151,12 @@ BitReader {
 	}
 }
 
-const	AVC_SPS_MAX_ID                                      = 255
+const	AVC_SPS_MAX_ID										= 255
 const	AVC_SPS_MAX_NUM_REF_FRAMES_IN_PIC_ORDER_CNT_CYCLE	= 256
 const	AVC_SPS_MAX_SCALING_LIST_COUNT						= 12
 const	AVC_PPS_MAX_ID										= 255
 const	AVC_PPS_MAX_SLICE_GROUPS							= 256
-const	AVC_PPS_MAX_PIC_SIZE_IN_MAP_UNITS                   = 65536
+const	AVC_PPS_MAX_PIC_SIZE_IN_MAP_UNITS					= 65536
 
 const
 AvcSPS = bytes => {
@@ -181,25 +165,25 @@ AvcSPS = bytes => {
 	const $ = {}
 
 	const bits = new BitReader( bytes )
-    bits.Skip( 8 ); // NAL Unit Type
+	bits.Skip( 8 ); // NAL Unit Type
 
-    $.profile_idc = bits.ReadBits( 8 )
-    $.constraint_set0_flag = bits.Read()
-    $.constraint_set1_flag = bits.Read()
-    $.constraint_set2_flag = bits.Read()
-    $.constraint_set3_flag = bits.Read()
-    $.constraint_set4_flag = bits.Read()
-    $.constraint_set5_flag = bits.Read()
-    bits.Skip( 2 )
-    $.level_idc = bits.ReadBits( 8 )
-    $.seq_parameter_set_id = bits.ReadGolomb()
-    if ( $.seq_parameter_set_id > AVC_SPS_MAX_ID ) throw "ERROR_INVALID_FORMAT"
-    if ($.profile_idc  ==  100
+	$.profile_idc = bits.ReadBits( 8 )
+	$.constraint_set0_flag = bits.Read()
+	$.constraint_set1_flag = bits.Read()
+	$.constraint_set2_flag = bits.Read()
+	$.constraint_set3_flag = bits.Read()
+	$.constraint_set4_flag = bits.Read()
+	$.constraint_set5_flag = bits.Read()
+	bits.Skip( 2 )
+	$.level_idc = bits.ReadBits( 8 )
+	$.seq_parameter_set_id = bits.ReadGolomb()
+	if ( $.seq_parameter_set_id > AVC_SPS_MAX_ID ) throw "ERROR_INVALID_FORMAT"
+	if ($.profile_idc  ==  100
 	||	$.profile_idc  ==  110
-    ||	$.profile_idc  ==  122
-    ||	$.profile_idc  ==  244
-    ||	$.profile_idc  ==  44
-    ||	$.profile_idc  ==  83
+	||	$.profile_idc  ==  122
+	||	$.profile_idc  ==  244
+	||	$.profile_idc  ==  44
+	||	$.profile_idc  ==  83
 	||	$.profile_idc  ==  86
 	||	$.profile_idc  ==  118
 	||	$.profile_idc  ==  128
@@ -207,81 +191,81 @@ AvcSPS = bytes => {
 	||	$.profile_idc  ==  139
 	||	$.profile_idc  ==  134
 	) {
-        $.chroma_format_idc = bits.ReadGolomb()
-        $.separate_colour_plane_flag = 0
-        if ($.chroma_format_idc == 3) {
-            $.separate_colour_plane_flag = bits.Read();	//	ORG SKIP
-        }
-        $.bit_depth_luma_minus8 = bits.ReadGolomb()
-        $.bit_depth_chroma_minus8 = bits.ReadGolomb()
-        $.qpprime_y_zero_transform_bypass_flag = bits.Read();	//	ORG SKIP
-        $.seq_scaling_matrix_present_flag = bits.Read()
-        if ( $.seq_scaling_matrix_present_flag ) {
-            for ( let i = 0; i < ( $.chroma_format_idc != 3 ? 8 : 12 ); i++ ) {
-                const seq_scaling_list_present_flag = bits.Read();	//	ORG SKIP
-                if (seq_scaling_list_present_flag) {
+		$.chroma_format_idc = bits.ReadGolomb()
+		$.separate_colour_plane_flag = 0
+		if ($.chroma_format_idc == 3) {
+			$.separate_colour_plane_flag = bits.Read();	//	ORG SKIP
+		}
+		$.bit_depth_luma_minus8 = bits.ReadGolomb()
+		$.bit_depth_chroma_minus8 = bits.ReadGolomb()
+		$.qpprime_y_zero_transform_bypass_flag = bits.Read();	//	ORG SKIP
+		$.seq_scaling_matrix_present_flag = bits.Read()
+		if ( $.seq_scaling_matrix_present_flag ) {
+			for ( let i = 0; i < ( $.chroma_format_idc != 3 ? 8 : 12 ); i++ ) {
+				const seq_scaling_list_present_flag = bits.Read();	//	ORG SKIP
+				if (seq_scaling_list_present_flag) {
 					const last_scale = 8
 					const next_scale = 8
-                    if ( i < 6 ) {
-                        for ( let j = 0; j < 16; j++ ) {
-                            if ( next_scale ) {
-                                const delta_scale = bits.SignedGolomb()
-                                next_scale = ( last_scale + delta_scale + 256 ) % 256
-                                $.use_default_scaling_matrix_4x4[ i ] = ( j == 0 && next_scale == 0 )
-                            }
-                            $.scaling_list_4x4[ i ].scale[ j ] = ( next_scale == 0 ? last_scale : next_scale )
-                            last_scale = $.scaling_list_4x4[ i ].scale[ j ]
-                        }
-                    } else {
-                        for ( let j = 0; j < 64; j++ ) {
-                            if ( next_scale ) {
-                                const delta_scale = bits.SignedGolomb()
-                                next_scale = ( last_scale + delta_scale + 256 ) % 256
-                                $.use_default_scaling_matrix_8x8[ i - 6 ] = ( j == 0 && next_scale == 0 )
-                            }
-                            $.scaling_list_8x8[ i - 6 ].scale[ j ] = ( next_scale == 0 ? last_scale : next_scale )
-                            last_scale = $.scaling_list_8x8[ i - 6 ].scale[ j ]
-                        }
-                    }
-                }
-            }
-        }
-    } else {
-        $.chroma_format_idc = 1
+					if ( i < 6 ) {
+						for ( let j = 0; j < 16; j++ ) {
+							if ( next_scale ) {
+								const delta_scale = bits.SignedGolomb()
+								next_scale = ( last_scale + delta_scale + 256 ) % 256
+								$.use_default_scaling_matrix_4x4[ i ] = ( j == 0 && next_scale == 0 )
+							}
+							$.scaling_list_4x4[ i ].scale[ j ] = ( next_scale == 0 ? last_scale : next_scale )
+							last_scale = $.scaling_list_4x4[ i ].scale[ j ]
+						}
+					} else {
+						for ( let j = 0; j < 64; j++ ) {
+							if ( next_scale ) {
+								const delta_scale = bits.SignedGolomb()
+								next_scale = ( last_scale + delta_scale + 256 ) % 256
+								$.use_default_scaling_matrix_8x8[ i - 6 ] = ( j == 0 && next_scale == 0 )
+							}
+							$.scaling_list_8x8[ i - 6 ].scale[ j ] = ( next_scale == 0 ? last_scale : next_scale )
+							last_scale = $.scaling_list_8x8[ i - 6 ].scale[ j ]
+						}
+					}
+				}
+			}
+		}
+	} else {
+		$.chroma_format_idc = 1
 	}
-    $.log2_max_frame_num_minus4 = bits.ReadGolomb()
-    $.pic_order_cnt_type = bits.ReadGolomb()
-    if ($.pic_order_cnt_type > 2) throw "ERROR_INVALID_FORMAT"
-    if ($.pic_order_cnt_type == 0) {
-        $.log2_max_pic_order_cnt_lsb_minus4 = bits.ReadGolomb()
-    } else if ($.pic_order_cnt_type == 1) {
-        $.delta_pic_order_always_zero_flags = bits.Read()
-        $.offset_for_non_ref_pic = bits.SignedGolomb()
-        $.offset_for_top_to_bottom_field = bits.SignedGolomb()
-        $.num_ref_frames_in_pic_order_cnt_cycle = bits.ReadGolomb()
-        if ($.num_ref_frames_in_pic_order_cnt_cycle > AVC_SPS_MAX_NUM_REF_FRAMES_IN_PIC_ORDER_CNT_CYCLE) throw "ERROR_INVALID_FORMAT"
-        for ( let i=0; i<$.num_ref_frames_in_pic_order_cnt_cycle; i++) {
-            $.offset_for_ref_frame[i] = bits.SignedGolomb()
-        }
-    }
-    $.num_ref_frames                       = bits.ReadGolomb()
-    $.gaps_in_frame_num_value_allowed_flag = bits.Read()
-    $.pic_width_in_mbs_minus1              = bits.ReadGolomb()
-    $.pic_height_in_map_units_minus1       = bits.ReadGolomb()
-    $.frame_mbs_only_flag                  = bits.Read()
-    if (!$.frame_mbs_only_flag) {
-        $.mb_adaptive_frame_field_flag = bits.Read()
-    }
-    $.direct_8x8_inference_flag = bits.Read()
-    $.frame_cropping_flag       = bits.Read()
-    if ($.frame_cropping_flag) {
-        $.frame_crop_left_offset   = bits.ReadGolomb()
-        $.frame_crop_right_offset  = bits.ReadGolomb()
-        $.frame_crop_top_offset    = bits.ReadGolomb()
-        $.frame_crop_bottom_offset = bits.ReadGolomb()
-    }
+	$.log2_max_frame_num_minus4 = bits.ReadGolomb()
+	$.pic_order_cnt_type = bits.ReadGolomb()
+	if ($.pic_order_cnt_type > 2) throw "ERROR_INVALID_FORMAT"
+	if ($.pic_order_cnt_type == 0) {
+		$.log2_max_pic_order_cnt_lsb_minus4 = bits.ReadGolomb()
+	} else if ($.pic_order_cnt_type == 1) {
+		$.delta_pic_order_always_zero_flags = bits.Read()
+		$.offset_for_non_ref_pic = bits.SignedGolomb()
+		$.offset_for_top_to_bottom_field = bits.SignedGolomb()
+		$.num_ref_frames_in_pic_order_cnt_cycle = bits.ReadGolomb()
+		if ($.num_ref_frames_in_pic_order_cnt_cycle > AVC_SPS_MAX_NUM_REF_FRAMES_IN_PIC_ORDER_CNT_CYCLE) throw "ERROR_INVALID_FORMAT"
+		for ( let i=0; i<$.num_ref_frames_in_pic_order_cnt_cycle; i++) {
+			$.offset_for_ref_frame[i] = bits.SignedGolomb()
+		}
+	}
+	$.num_ref_frames						= bits.ReadGolomb()
+	$.gaps_in_frame_num_value_allowed_flag	= bits.Read()
+	$.pic_width_in_mbs_minus1				= bits.ReadGolomb()
+	$.pic_height_in_map_units_minus1		= bits.ReadGolomb()
+	$.frame_mbs_only_flag					= bits.Read()
+	if (!$.frame_mbs_only_flag) {
+		$.mb_adaptive_frame_field_flag		= bits.Read()
+	}
+	$.direct_8x8_inference_flag = bits.Read()
+	$.frame_cropping_flag					= bits.Read()
+	if ($.frame_cropping_flag) {
+		$.frame_crop_left_offset			= bits.ReadGolomb()
+		$.frame_crop_right_offset			= bits.ReadGolomb()
+		$.frame_crop_top_offset				= bits.ReadGolomb()
+		$.frame_crop_bottom_offset			= bits.ReadGolomb()
+	}
 
-    return $
+	return $
 }
 
 const
@@ -290,60 +274,60 @@ AvcPPS = bytes => {
 	const $ = {}
 
 	const bits = new BitReader( bytes )
-    bits.Skip( 8 ); // NAL Unit Type
+	bits.Skip( 8 ); // NAL Unit Type
 
-    $.pic_parameter_set_id     = bits.ReadGolomb()
-    if ($.pic_parameter_set_id > AVC_PPS_MAX_ID) throw "ERROR_INVALID_FORMAT"
-    $.seq_parameter_set_id     = bits.ReadGolomb()
-    if ($.seq_parameter_set_id > AVC_SPS_MAX_ID) throw "ERROR_INVALID_FORMAT"
-    $.entropy_coding_mode_flag = bits.Read()
-    $.pic_order_present_flag   = bits.Read()
-    $.num_slice_groups_minus1  = bits.ReadGolomb()
-    if ($.num_slice_groups_minus1 >= AVC_PPS_MAX_SLICE_GROUPS) throw "ERROR_INVALID_FORMAT"
-    if ($.num_slice_groups_minus1 > 0) {
-        $.slice_group_map_type = bits.ReadGolomb()
-        if ($.slice_group_map_type == 0) {
-            for (let i=0; i<=$.num_slice_groups_minus1; i++) {
-                $.run_length_minus1[i] = bits.ReadGolomb()
-            }
-        } else if ($.slice_group_map_type == 2) {
-            for (let i=0; i<$.num_slice_groups_minus1; i++) {
-                $.top_left[i] = bits.ReadGolomb()
-                $.bottom_right[i] = bits.ReadGolomb()
-            }
-        } else if ($.slice_group_map_type == 3 ||
-                   $.slice_group_map_type == 4 ||
-                   $.slice_group_map_type == 5) {
-            $.slice_group_change_direction_flag = bits.Read()
-            $.slice_group_change_rate_minus1 = bits.ReadGolomb()
-        } else if ($.slice_group_map_type == 6) {
-            $.pic_size_in_map_units_minus1 = bits.ReadGolomb()
-            if ($.pic_size_in_map_units_minus1 >= AVC_PPS_MAX_PIC_SIZE_IN_MAP_UNITS) throw "ERROR_INVALID_FORMAT"
-            let num_bits_per_slice_group_id
-            if ($.num_slice_groups_minus1 + 1 > 4) {
-                num_bits_per_slice_group_id = 3
-            } else if ($.num_slice_groups_minus1 + 1 > 2) {
-                num_bits_per_slice_group_id = 2
-            } else {
-                num_bits_per_slice_group_id = 1
-            }
-            for (let i=0; i<=$.pic_size_in_map_units_minus1; i++) {
-                /*$.slice_group_id[i] =*/ bits.ReadBits( num_bits_per_slice_group_id )
-            }
-        }
-    }
-    $.num_ref_idx_10_active_minus1 = bits.ReadGolomb()
-    $.num_ref_idx_11_active_minus1 = bits.ReadGolomb()
-    $.weighted_pred_flag           = bits.Read()
-    $.weighted_bipred_idc          = bits.ReadBits( 2 )
-    $.pic_init_qp_minus26          = bits.SignedGolomb()
-    $.pic_init_qs_minus26          = bits.SignedGolomb()
-    $.chroma_qp_index_offset       = bits.SignedGolomb()
-    $.deblocking_filter_control_present_flag = bits.Read()
-    $.constrained_intra_pred_flag            = bits.Read()
-    $.redundant_pic_cnt_present_flag         = bits.Read()
+	$.pic_parameter_set_id	 = bits.ReadGolomb()
+	if ($.pic_parameter_set_id > AVC_PPS_MAX_ID) throw "ERROR_INVALID_FORMAT"
+	$.seq_parameter_set_id	 = bits.ReadGolomb()
+	if ($.seq_parameter_set_id > AVC_SPS_MAX_ID) throw "ERROR_INVALID_FORMAT"
+	$.entropy_coding_mode_flag	= bits.Read()
+	$.pic_order_present_flag	= bits.Read()
+	$.num_slice_groups_minus1	= bits.ReadGolomb()
+	if ($.num_slice_groups_minus1 >= AVC_PPS_MAX_SLICE_GROUPS) throw "ERROR_INVALID_FORMAT"
+	if ($.num_slice_groups_minus1 > 0) {
+		$.slice_group_map_type = bits.ReadGolomb()
+		if ($.slice_group_map_type == 0) {
+			for (let i=0; i<=$.num_slice_groups_minus1; i++) {
+				$.run_length_minus1[i] = bits.ReadGolomb()
+			}
+		} else if ($.slice_group_map_type == 2) {
+			for (let i=0; i<$.num_slice_groups_minus1; i++) {
+				$.top_left[i] = bits.ReadGolomb()
+				$.bottom_right[i] = bits.ReadGolomb()
+			}
+		} else if ($.slice_group_map_type == 3 ||
+				$.slice_group_map_type == 4 ||
+				$.slice_group_map_type == 5) {
+			$.slice_group_change_direction_flag = bits.Read()
+			$.slice_group_change_rate_minus1 = bits.ReadGolomb()
+		} else if ($.slice_group_map_type == 6) {
+			$.pic_size_in_map_units_minus1 = bits.ReadGolomb()
+			if ($.pic_size_in_map_units_minus1 >= AVC_PPS_MAX_PIC_SIZE_IN_MAP_UNITS) throw "ERROR_INVALID_FORMAT"
+			let num_bits_per_slice_group_id
+			if ($.num_slice_groups_minus1 + 1 > 4) {
+				num_bits_per_slice_group_id = 3
+			} else if ($.num_slice_groups_minus1 + 1 > 2) {
+				num_bits_per_slice_group_id = 2
+			} else {
+				num_bits_per_slice_group_id = 1
+			}
+			for (let i=0; i<=$.pic_size_in_map_units_minus1; i++) {
+				/*$.slice_group_id[i] =*/ bits.ReadBits( num_bits_per_slice_group_id )
+			}
+		}
+	}
+	$.num_ref_idx_10_active_minus1				= bits.ReadGolomb()
+	$.num_ref_idx_11_active_minus1				= bits.ReadGolomb()
+	$.weighted_pred_flag						= bits.Read()
+	$.weighted_bipred_idc						= bits.ReadBits( 2 )
+	$.pic_init_qp_minus26						= bits.SignedGolomb()
+	$.pic_init_qs_minus26						= bits.SignedGolomb()
+	$.chroma_qp_index_offset					= bits.SignedGolomb()
+	$.deblocking_filter_control_present_flag	= bits.Read()
+	$.constrained_intra_pred_flag				= bits.Read()
+	$.redundant_pic_cnt_present_flag			= bits.Read()
 
-    return $
+	return $
 }
 
 
@@ -410,7 +394,7 @@ Atom {
 	JSON() {
 
 		const $ = {
-			'META': TypeString( this.type ) + ':' +  this.Size()
+			'META': TypeString( this.type ) + ':' + this.Size()
 		}
 		{	const _ = this.RawJSON()
 			_ && ( $[ 'DATA' ] = _ )
@@ -484,7 +468,7 @@ Atom {
 					pos += 20
 				}
 				const	sampleCount = this.Size4( pos )
-				pos +=  4
+				pos += 4
 				$.Entries = Array.from(
 					{ length: sampleCount }
 				,	() => {
@@ -539,7 +523,7 @@ Atom {
 				pos += 2
 				$.AlternateGroup	= this.Size2( pos )
 				pos += 2
-				$.Volume			= this.Size2( pos +  4 )
+				$.Volume			= this.Size2( pos + 4 )
 				pos += 2
 				pos += 2	//	Reserved3
 				$.Matrix			= Array.from(
@@ -565,7 +549,7 @@ Atom {
 				vf & 0x00008 && ( $.DefaultSampleDuration	= this.Size4( pos )		, pos += 4 )	//	TFHD_FLAG_DEFAULT_SAMPLE_DURATION_PRESENT
 				vf & 0x00010 && ( $.DefaultSampleSize		= this.Size4( pos )		, pos += 4 )	//	TFHD_FLAG_DEFAULT_SAMPLE_SIZE_PRESENT
 				vf & 0x00020 && ( $.DefaultSampleFlags		= this.Hex( pos, 4 )	, pos += 4 )	//	TFHD_FLAG_DEFAULT_SAMPLE_FLAGS_PRESENT
-			//	 SamplePadding="0" Sync="0" DegradationPriority="0" IsLeading="0"      DependsOn="1" IsDependedOn="0" HasRedundancy="0"
+			//	 SamplePadding="0" Sync="0" DegradationPriority="0" IsLeading="0" DependsOn="1" IsDependedOn="0" HasRedundancy="0"
 																									//	TFHD_FLAG_DURATION_IS_EMPTY
 																									//	TFHD_FLAG_DEFAULT_BASE_IS_MOOF
 				return $
@@ -755,25 +739,25 @@ Atom {
 			}
 
 		case Q_trun	:
-	//	const UI32 TRUN_FLAG_DATA_OFFSET_PRESENT                    = 0x0001
-	//	const UI32 TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT             = 0x0004
-	//	const UI32 TRUN_FLAG_SAMPLE_DURATION_PRESENT                = 0x0100
-	//	const UI32 TRUN_FLAG_SAMPLE_SIZE_PRESENT                    = 0x0200
-	//	const UI32 TRUN_FLAG_SAMPLE_FLAGS_PRESENT                   = 0x0400
-	//	const UI32 TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT = 0x0800
+	//	const UI32 TRUN_FLAG_DATA_OFFSET_PRESENT					= 0x0001
+	//	const UI32 TRUN_FLAG_FIRST_SAMPLE_FLAGS_PRESENT				= 0x0004
+	//	const UI32 TRUN_FLAG_SAMPLE_DURATION_PRESENT				= 0x0100
+	//	const UI32 TRUN_FLAG_SAMPLE_SIZE_PRESENT					= 0x0200
+	//	const UI32 TRUN_FLAG_SAMPLE_FLAGS_PRESENT					= 0x0400
+	//	const UI32 TRUN_FLAG_SAMPLE_COMPOSITION_TIME_OFFSET_PRESENT	= 0x0800
 			{	const	vf = this.Size4( 0 )
 				const	$ = { 'Version + Flags': this.Hex( 0, 4 ) }
 				let		pos = 8
-				if ( vf &    1 ) {
+				if ( vf &	1 ) {
 					$[ 'DataOffset(must be moof size + 8)' ] = this.Size4( pos )
 					pos += 4
 				}
-				if ( vf &    2 ) pos += 4
-				if ( vf &    4 ) {
+				if ( vf &	2 ) pos += 4
+				if ( vf &	4 ) {
 					$.FirstSampleFlags = this.Hex( pos, 4 )
 					pos += 4
 				}
-				if ( vf &    8 ) pos += 4
+				if ( vf &	8 ) pos += 4
 				if ( vf & 0x10 ) pos += 4
 				if ( vf & 0x20 ) pos += 4
 				if ( vf & 0x40 ) pos += 4
@@ -938,7 +922,7 @@ Atom {
 
 		case Q_data	:
 			return String.fromCharCode( ...SubBytes( this.bytes, 8 ) )
-//	<ToolBox Size="37" Type="A9746F6F" Specification="apple" Container="ilst data"  value="Lavf58.29.100" >
+//	<ToolBox Size="37" Type="A9746F6F" Specification="apple" Container="ilst data" value="Lavf58.29.100" >
 
 		case Q_tfra	:
 			{	const	vf = this.Size4( 0 )
@@ -1019,22 +1003,22 @@ Atom {
 		case Q_esds	:
 			return EncodeHex( this.bytes )
 		//	0000000003190000000411401500000000016cd600016cd605021190060102
-//                         <ES_Descriptor ES_ID="es0" >
-//                          <decConfigDescr>
-//                           <DecoderConfigDescriptor objectTypeIndication="64" streamType="5" maxBitrate="93398" avgBitrate="93398" >	//	93398 = 0x16cd6
-//                            <decSpecificInfo>
-//                             <DecoderSpecificInfo type="auto" src="data:application/octet-string,%11%90" />
-//                            </decSpecificInfo>
-//                           </DecoderConfigDescriptor>
-//                          </decConfigDescr>
-//                          <slConfigDescr>
-//                           <SLConfigDescriptor >
-//                            <predefined value="2" />
-//                            <custom >
-//                            </custom>
-//                           </SLConfigDescriptor>
-//                          </slConfigDescr>
-//                         </ES_Descriptor>
+//						 <ES_Descriptor ES_ID="es0" >
+//						  <decConfigDescr>
+//						   <DecoderConfigDescriptor objectTypeIndication="64" streamType="5" maxBitrate="93398" avgBitrate="93398" >	//	93398 = 0x16cd6
+//							<decSpecificInfo>
+//							 <DecoderSpecificInfo type="auto" src="data:application/octet-string,%11%90" />
+//							</decSpecificInfo>
+//						   </DecoderConfigDescriptor>
+//						  </decConfigDescr>
+//						  <slConfigDescr>
+//						   <SLConfigDescriptor >
+//							<predefined value="2" />
+//							<custom >
+//							</custom>
+//						   </SLConfigDescriptor>
+//						  </slConfigDescr>
+//						 </ES_Descriptor>
 
 //		case Q_mdat	:
 //			s += EncodeHexLF16( $, 0, $->$.size() )
@@ -1179,7 +1163,7 @@ JSON2Atom = json => {
 		data = new Uint8Array( 12 )
 		{	const dv = MakeDataView( data )
 			dv.setUint32(  0, parseInt( json.DATA[ "Version + Flags" ], 16 ) )
-			dv.setBigUint64(  4, BigInt( json.DATA.BaseMediaDecodeTime ) )
+			dv.setBigUint64( 4, BigInt( json.DATA.BaseMediaDecodeTime ) )
 		}
 		break
 	case Q_trun	:
